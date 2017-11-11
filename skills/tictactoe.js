@@ -98,6 +98,9 @@ module.exports = function (controller) {
 
     controller.hears(["tic"], "direct_message,direct_mention", function (bot, message) {
 
+        const ENEMY = X;
+        const ME = O;
+
         bot.startConversation(message, function (err, convo) {
             // Ask for a Move Thread
             convo.addQuestion("What is your move?",
@@ -109,25 +112,21 @@ module.exports = function (controller) {
                     const is_win = register_move(ENEMY, r, c);
                     convo_show_board(convo, Board);
                     if (is_win){
-                        convo.say("Wow you Win!");
-                        convo.gotoThread('exit');
+                        convo.transitionTo('exit', 'Wow you Win!');
                     }else if(is_win === null){
                         // it is a tie
-                        convo.say("Ohhh, It is a tie!");
-                        convo.gotoThread('exit');
+                        convo.transitionTo('exit', "Ohhh, It is a tie!");
                     } else {
                         // No win or tie, -> the bots turn.
                         const my_move = random_move(ME);
-                        convo.say("Nice Move!, I play " + my_move[0] + " " + my_move[1]);
+                        convo.say("Nice Move!, \n I play " + my_move[0] + " " + my_move[1]);
                         const is_my_win = register_move(ME, my_move[0], my_move[1]);
                         convo_show_board(convo, Board);
                         if (is_my_win) {
-                            convo.say("Haha I Win!");
-                            convo.gotoThread('exit');
+                            convo.transitionTo('exit', 'Haha, I Win!');
                         } else if (is_win === null) {
                             // it is a tie
-                            convo.say("Ohhh, It is a tie!");
-                            convo.gotoThread('exit');
+                            convo.transitionTo('exit', "Ohhh, It is a tie!");
                         } else {
                             convo.repeat();
                         }
@@ -137,16 +136,11 @@ module.exports = function (controller) {
                 },
                 [], "ask_move_thread");
 
-            // enemy wins thread
-            convo.addMessage("Thanks for the game!", "exit");
-
+            // exit
+            convo.addMessage({text:"Thanks for the Game!", action:'completed'}, "exit");
 
             // Start of conversation
-            const ENEMY = X;
-            const ME = O;
-            convo.say("You go first.");
-            convo.say("The Board is empty now");
-            convo.gotoThread('ask_move_thread');
+            convo.transitionTo('ask_move_thread', "You go first, The Board is empty now");
 
         });
     });
