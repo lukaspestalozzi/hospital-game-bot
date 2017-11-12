@@ -1,10 +1,5 @@
 'use strict';
 
-/**
- * Leads the two human Players through a game of TicTacToe
- *
- */
-
 
 const X = 'X';
 const O = 'O';
@@ -14,8 +9,8 @@ const TIE = 'TIE';
 
 function create_board(){
     return [[EMPTY, EMPTY, EMPTY],
-        [EMPTY, EMPTY, EMPTY],
-        [EMPTY, EMPTY, EMPTY]];
+            [EMPTY, EMPTY, EMPTY],
+            [EMPTY, EMPTY, EMPTY]];
 }
 
 /*
@@ -68,8 +63,8 @@ function register_move(board, player, row, col){
 function board_markdown(board){
     console.assert(board);
     return  "`"+board[0][0]+"|"+board[0][1]+"|"+board[0][2]+"` <br/>" +
-        "`"+board[1][0]+"|"+board[1][1]+"|"+board[1][2]+"` <br/>" +
-        "`"+board[2][0]+"|"+board[2][1]+"|"+board[2][2]+"`";
+            "`"+board[1][0]+"|"+board[1][1]+"|"+board[1][2]+"` <br/>" +
+            "`"+board[2][0]+"|"+board[2][1]+"|"+board[2][2]+"`";
 }
 
 function convo_show_board(convo, thread){
@@ -80,7 +75,28 @@ function random_int(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-const template= "" +
+/*
+    Returns: a random move.
+    TODO this is very ugly now, and may loop forever if there is no free field to play on
+     */
+function random_move(board){
+    console.warn(board);
+    var r = random_int(0, 2);
+    var c = random_int(0, 2);
+    while(board[r][c] !== EMPTY){
+        r = random_int(0, 2);
+        c = random_int(0, 2);
+    }
+    return [r, c]
+}
+
+
+const template= "Begin: <table>" +
+                "<tr>{{#vars.row0}}<td>{{elem}}</td>{{/vars.row0}}<tr/>\n" +
+                "<tr>{{#vars.row1}}<td>{{elem}}</td>{{/vars.row1}}<tr/>\n" +
+                "<tr>{{#vars.row2}}<td>{{elem}}</td>{{/vars.row2}}<tr/>" +
+                "</table>";
+const template2= "" +
     "`{{#vars.row0}}{{elem}}{{/vars.row0}}`<br/>" +
     "`{{#vars.row1}}{{elem}}{{/vars.row1}}`<br/>" +
     "`{{#vars.row2}}{{elem}}{{/vars.row2}}`<br/>" +
@@ -98,7 +114,7 @@ module.exports = function (controller) {
             convo.setVar('Board', create_board());
 
             // Ask User for a move
-            convo.addMessage(template, 'ask_user_move');
+            convo.addMessage(template2, 'ask_user_move');
             convo.addQuestion("Please make a move", [
                 {
                     pattern: "^[0|1|2] [0|1|2]",
