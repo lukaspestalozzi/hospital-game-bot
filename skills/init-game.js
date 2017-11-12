@@ -1,6 +1,6 @@
 'use strict';
 
-// jquery initialization
+// requests initialization
 var request = require('request');
 const API_URL = "https://api.ciscospark.com/v1/";
 const CHARSET = "application/json; charset=utf-8";
@@ -15,7 +15,6 @@ module.exports = function (controller) {
             "Authorization": "Bearer " + process.env.SPARK_TOKEN
         };
     }
-
 
     function startGame() {
         console.info("Start game...");
@@ -45,13 +44,13 @@ module.exports = function (controller) {
             if(!error && response.statusCode == 200) {
                 var info = JSON.parse(body);
                 console.log(info);
-                var user1 = players_waiting.pop();
-                console.log("Add: " + user1);
-                addPersonToRoom(user1, info.id);
+                var player1 = players_waiting.pop();
+                console.log("Add player 1: " + player1);
+                addPersonToRoom(player1, info.id);
 
-                var user2 = players_waiting.pop();
-                console.log("Add: " + user2);
-                addPersonToRoom(user2, info.id);
+                var player2 = players_waiting.pop();
+                console.log("Add player 2: " + player2);
+                addPersonToRoom(player2, info.id);
             } else {
                 console.log("Error: " + error);
                 console.log("Response: " + response.statusCode);
