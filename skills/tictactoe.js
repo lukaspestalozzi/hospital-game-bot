@@ -86,36 +86,83 @@ const template= "" +
     "`{{#vars.row2}}{{elem}}{{/vars.row2}}`<br/>" +
     "";
 
-// ----------------- Controller ------------------
+var request = require('request');
+const API_URL = "https://api.ciscospark.com/v1/";
+const CHARSET = "application/json; charset=utf-8";
+
+function getHeaders() {
+    return {
+        "Content-type": CHARSET,
+        "Authorization": "Bearer " + process.env.SPARK_TOKEN
+    };
+}
+
+// ----------------- Controller ------------------ //
 module.exports = function (controller) {
 
-    controller.hears(["tic"], "direct_message,direct_mention", function (bot, message) {
+    controller.hears(["start tic"], "direct_message,direct_mention", function (bot, message) {
 
         bot.startConversation(message, function (err, convo) {
-            // decide who plays what color and init Board
-            convo.setVar('ENEMY', Math.random() < 0 ? X : O);
-            convo.setVar('ME', convo.vars['ENEMY'] === X ? O : X);
-            convo.setVar('Board', create_board());
+            //console.info(convo);
+            //console.info(message);
+            const roomID = convo.context['channel'];
+            // get persons in room
+            request.get({url: API_URL + "memberships?roomId="+roomID, headers: getHeaders()}, function(error, response, body) {
+                if(!error && response.statusCode === 200) {
+                    var info = JSON.parse(body);
+                    console.info('info: ', info);
+
+                    var persons = {id0: info.items[0].id, id1: info.items[1].id,
+                                   name0: info.items[0].personDisplayName, name1: info.items[1].personDisplayName};
+                    console.info('persons_id', persons);
+                    // decide who plays what color and init Board
+                    convo.setVar('idX', persons.id0);
+                    convo.setVar('idO', persons.id1);
+                    convo.setVar('X_player_name', persons.name0);
+                    convo.setVar('O_player_name', persons.name1);
+                    convo.setVar('Board', create_board());
+
+                    // Start of conversation
+                    convo.setVar('curr_player_name', convo.vars['X_player_name']);
+                    convo.setVar('curr_player_color', X);
+                    convo.gotoThread('start_game');
+                } else {
+                    console.warn("Error: " + error);
+                    console.warn("Response: " + response.statusCode);
+                    return null
+                }
+            });
+
+            // start game preamble
+            convo.addMessage("{{vars.X_player_name}} you are '"+X+"'and can move first.", "start_game");
+            convo.addMessage("{{vars.O_player_name}} you are '"+O+"'", "start_game");
+            convo.addMessage({text: "{{vars.curr_player_name}} must play now, The Board is empty.", action: 'ask_user_move'}, "start_game");
+
 
             // Ask User for a move
+
             convo.addMessage(template, 'ask_user_move');
+            convo.addMessage('It is {{vars.curr_player_name}} turn now.', 'ask_user_move');
             convo.addQuestion("Please make a move", [
                 {
                     pattern: "^[0|1|2] [0|1|2]",
                     callback: function (response, convo){
+                        // TODO check whether from correct user
                         var Board = convo.vars['Board'];
-                        var ENEMY = convo.vars['ENEMY'];
 
                         const splitted = response.text.split(' ');
-                        const res = register_move(Board, ENEMY, splitted[0], splitted[1]);
+                        const res = register_move(Board, convo.vars['curr_player_color'], splitted[0], splitted[1]);
                         if (res === WIN){
-                            convo.transitionTo('exit', 'Wow you Win!');
+                            convo.transitionTo('exit', 'Wow, {{vars.curr_player_name}} you Win!');
                         }else if(res === TIE){
                             // it is a tie
                             convo.transitionTo('exit', "Ohhh, It is a tie!");
                         } else {
                             // bot's turn
-                            convo.transitionTo('bots_turn', "It is my turn now.");
+                            const next_color = convo.vars['curr_player_color'] === X? O : X;
+                            convo.setVar('curr_player_color', next_color);
+                            convo.setVar('curr_player_name', convo.vars[next_color+'_player_name']);
+                            convo.gotoThread('ask_user_move');
                         }
                         convo.next();
                     }
@@ -143,33 +190,11 @@ module.exports = function (controller) {
                 next();
             });
 
-            // bots turn thread
-            convo.addMessage({text: "Your Turn now.", markdown: "_Your turn now_", action: 'ask_user_move'}, 'bots_turn');
-
-            // Before bots turn thread, bot does the move
-            convo.beforeThread('bots_turn', function(convo, next) {
-                var Board = convo.vars['Board'];
-                var ME = convo.vars['ME'];
-
-                const my_move = random_move(Board, ME);
-                convo.say("I play " + my_move[0] + " " + my_move[1]);
-                const res = register_move(Board, ME, my_move[0], my_move[1]);
-                if (res === WIN) {
-                    convo.transitionTo('exit', 'Haha, I Win!');
-                } else if (res === TIE) {
-                    // it is a tie
-                    convo.transitionTo('exit', "Ohhh, It is a tie!");
-                } else {
-                    convo.gotoThread('ask_user_move');
-                }
-                next();
-            });
-
             // exit
-            convo.addMessage({text:"Thanks for the Game!<br>"+template2, action:'completed'}, "exit");
+            convo.addMessage({text:"Thanks for the Game!<br>"+template, action:'completed'}, "exit");
 
             convo.beforeThread('exit', function (convo, next) {
-                console.info("before ask_user_move");
+                //console.info("before ask_user_move");
                 const board = convo.vars['Board'];
 
                 convo.setVar('row0', [{"elem": board[0][0]}, {"elem": board[0][1]}, {"elem": board[0][2]}]);
@@ -179,12 +204,7 @@ module.exports = function (controller) {
                 next();
             });
 
-            // Start of conversation
-            if(convo.vars['ENEMY'] === X) {
-                convo.transitionTo('ask_user_move', "You go first, The Board is empty now");
-            }else{
-                convo.transitionTo('bots_turn', "I go first.");
-            }
+
         });
     });
 };
